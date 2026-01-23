@@ -3,11 +3,14 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
+from pathlib import Path
 
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+
+from cs336_basics.bpe_tokenizer import train_bpe
 
 
 def run_linear(
@@ -589,4 +592,28 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    # Calculate num_merges from vocab_size
+    # vocab_size = 256 (base bytes) + num_merges + num_special_tokens
+    num_merges = vocab_size - 256 - len(special_tokens)
+    
+    # Train the tokenizer
+    params = train_bpe(
+        filename=str(input_path),
+        num_merges=num_merges,
+        special_tokens=special_tokens,
+        use_multiprocessing=False  # Disable for test consistency
+    )
+    
+    # Convert vocab format: Dict[int, bytes] (already correct format)
+    vocab = params.vocab
+    
+    # Convert merges format from Dict[Tuple[int, int], int] to List[Tuple[bytes, bytes]]
+    # The merges need to be in the order they were created
+    merges = []
+    # Sort by merge index to preserve order
+    sorted_merges = sorted(params.merges.items(), key=lambda x: x[1])
+    for (idx1, idx2), new_idx in sorted_merges:
+        merge_tuple = (vocab[idx1], vocab[idx2])
+        merges.append(merge_tuple)
+    
+    return vocab, merges
