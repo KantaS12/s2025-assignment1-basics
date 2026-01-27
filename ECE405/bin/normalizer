@@ -1,4 +1,4 @@
-#!/home/kantas/ece405-assignment1-basics/ECE405/bin/python3
+#!/mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/ECE405/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

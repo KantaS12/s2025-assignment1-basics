@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/home/kantas/ece405-assignment1-basics/ECE405"
+VIRTUAL_ENV="/mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/ECE405"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -48,7 +48,16 @@ class Tokenizer:
         vocab = {}
         with open(vocab_filepath, 'r', encoding='utf-8') as vf:
             for line in vf:
-                token, index = line.strip().split()
+                parts = line.strip().split()
+                if not parts: 
+                    continue
+
+                if len(parts) == 1:
+                    index = parts[0]
+                    token = " "
+                else:
+                    token, index = parts
+
                 vocab[int(index)] = token.encode('utf-8')
         
         merges = []
@@ -60,11 +69,17 @@ class Tokenizer:
         
         special_tokens_dict = {}
         if special_tokens is not None:
+            existing_tokens = {v.decode('utf-8', errors='ignore'): k for k, v in vocab.items()}            
+            
+            next_id = max(vocab.keys()) + 1 if vocab else 0
             for token in special_tokens:
-                special_tokens_dict[token] = len(vocab) + len(special_tokens_dict)
-        
-        return cls(vocab=vocab, merges=merges, special_tokens=special_tokens_dict)
+                if token in existing_tokens:
+                    special_tokens_dict[token] = existing_tokens[token]
+                else:
+                    special_tokens_dict[token] = next_id
+                    next_id += 1
 
+        return cls(vocab, merges, special_tokens_dict)
     def encode(self, text: str) -> list[int]:
         """
         Encode an input text into a sequence of token IDs.
