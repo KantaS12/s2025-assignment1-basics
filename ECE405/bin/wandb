@@ -1,7 +1,0 @@
-#!/mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/ECE405/bin/python
-import sys
-from wandb.cli.cli import cli
-if __name__ == '__main__':
-    if sys.argv[0].endswith('.exe'):
-        sys.argv[0] = sys.argv[0][:-4]
-    sys.exit(cli())

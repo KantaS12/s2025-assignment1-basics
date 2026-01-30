@@ -1,5 +1,6 @@
 from typing import Iterable, Iterator
 import regex as re
+import json
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -45,41 +46,45 @@ class Tokenizer:
         @return
         Tokenizer
         """
-        vocab = {}
+        # Load vocab from JSON format: {"index": [byte_values]}
         with open(vocab_filepath, 'r', encoding='utf-8') as vf:
-            for line in vf:
-                parts = line.strip().split()
-                if not parts: 
-                    continue
-
-                if len(parts) == 1:
-                    index = parts[0]
-                    token = " "
-                else:
-                    token, index = parts
-
-                vocab[int(index)] = token.encode('utf-8')
+            raw_vocab = json.load(vf)
         
+        # Convert {"index": [byte_values]} -> {int: bytes}
+        vocab = {int(idx): bytes(byte_list) for idx, byte_list in raw_vocab.items()}
+        
+        # Load merges
         merges = []
         with open(merges_filepath, 'r', encoding='utf-8') as mf:
-            for line in mf:
-                parts = line.strip().split()
-                if len(parts) == 2:
-                    merges.append((parts[0].encode('utf-8'), parts[1].encode('utf-8')))
+            merges_data = json.load(mf)
+            for pair in merges_data:
+                # Handle both formats
+                if isinstance(pair[0], list):
+                    # Format: [[byte_list1], [byte_list2]]
+                    merges.append((bytes(pair[0]), bytes(pair[1])))
+                else:
+                    # Format: ["string1", "string2"]
+                    merges.append((pair[0].encode('utf-8'), pair[1].encode('utf-8')))
         
         special_tokens_dict = {}
         if special_tokens is not None:
-            existing_tokens = {v.decode('utf-8', errors='ignore'): k for k, v in vocab.items()}            
-            
+            # Build reverse lookup: bytes -> id
+            bytes_to_id = {v: k for k, v in vocab.items()}
             next_id = max(vocab.keys()) + 1 if vocab else 0
+            
             for token in special_tokens:
-                if token in existing_tokens:
-                    special_tokens_dict[token] = existing_tokens[token]
+                token_bytes = token.encode('utf-8')
+                if token_bytes in bytes_to_id:
+                    # Token already exists in vocab - use existing ID
+                    special_tokens_dict[token] = bytes_to_id[token_bytes]
                 else:
+                    # Add new special token
                     special_tokens_dict[token] = next_id
+                    vocab[next_id] = token_bytes
                     next_id += 1
 
         return cls(vocab, merges, special_tokens_dict)
+
     def encode(self, text: str) -> list[int]:
         """
         Encode an input text into a sequence of token IDs.
@@ -120,8 +125,14 @@ class Tokenizer:
                             break
                         word = word[:best_idx] + [best_pair[0] + best_pair[1]] + word[best_idx + 2:]
                     
+                    # Convert tokens to IDs with fallback
                     for token in word:
-                        result.append(self.token_to_id[token])
+                        if token in self.token_to_id:
+                            result.append(self.token_to_id[token])
+                        else:
+                            # Fallback: split into individual bytes (IDs 0-255 always exist)
+                            for b in token:
+                                result.append(b)
         
         return result
 

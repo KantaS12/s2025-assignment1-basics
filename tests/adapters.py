@@ -566,11 +566,22 @@ def get_tokenizer(
     # Convert special_tokens list to dict with IDs
     special_tokens_dict = {}
     if special_tokens is not None:
+        # Build reverse lookup: bytes -> id
+        bytes_to_id = {v: k for k, v in vocab.items()}
+        next_id = max(vocab.keys()) + 1 if vocab else 0
+        
         for token in special_tokens:
-            special_tokens_dict[token] = len(vocab) + len(special_tokens_dict)
+            token_bytes = token.encode('utf-8')
+            if token_bytes in bytes_to_id:
+                # Token already exists in vocab - use existing ID
+                special_tokens_dict[token] = bytes_to_id[token_bytes]
+            else:
+                # Add new special token
+                special_tokens_dict[token] = next_id
+                vocab[next_id] = token_bytes
+                next_id += 1
     
     return Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens_dict)
-
 
 def run_train_bpe(
     input_path: str | os.PathLike,
@@ -599,28 +610,11 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    # Calculate num_merges from vocab_size
-    # vocab_size = 256 (base bytes) + num_merges + num_special_tokens
-    num_merges = vocab_size - 256 - len(special_tokens)
-    
-    # Train the tokenizer
     params = train_bpe(
         filename=str(input_path),
-        num_merges=num_merges,
+        vocab_size=vocab_size, 
         special_tokens=special_tokens,
-        use_multiprocessing=False  # Disable for test consistency
+        use_multiprocessing=False
     )
     
-    # Convert vocab format: Dict[int, bytes] (already correct format)
-    vocab = params.vocab
-    
-    # Convert merges format from Dict[Tuple[int, int], int] to List[Tuple[bytes, bytes]]
-    # The merges need to be in the order they were created
-    merges = []
-    # Sort by merge index to preserve order
-    sorted_merges = sorted(params.merges.items(), key=lambda x: x[1])
-    for (idx1, idx2), new_idx in sorted_merges:
-        merge_tuple = (vocab[idx1], vocab[idx2])
-        merges.append(merge_tuple)
-    
-    return vocab, merges
+    return params.vocab, params.ordered_merges

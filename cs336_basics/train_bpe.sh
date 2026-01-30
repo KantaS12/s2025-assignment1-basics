@@ -8,7 +8,6 @@
 #SBATCH --time=18:00:00          # Set limit to 18 hours
 #SBATCH --cpus-per-task=16       # Use 16 cores (helps the initial word counting)
 
-cd /home/kantas/ece405-assignment1-basics
-source ECE405/bin/activate
+cd /home/kantas/koa_scratch/ece405-assignment1-basics
 
-python3 cs336_basics/bpe_tokenizer.py
+/home/kantas/.conda/envs/ECE405/bin/python cs336_basics/bpe_tokenizer.py
