@@ -20,7 +20,6 @@ class BPETokenizerParams:
     special_tokens: Dict[str, int] = field(default_factory=dict)
     ordered_merges: List[Tuple[bytes, bytes]] = field(default_factory=list)
 
-# Optimized regex for GPT-2/3 style pre-tokenization
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 def find_chunk_boundaries(file: BinaryIO, desired_num_chunks: int, split_special_token: bytes) -> list[int]:
@@ -51,15 +50,8 @@ def find_chunk_boundaries(file: BinaryIO, desired_num_chunks: int, split_special
 def process_chunk_from_file(args):
     """Worker function to process a slice of the text file into word counts."""
     filename, start, end, pattern_str, special_tokens = args
-    # GPT-2 Standard Byte-to-Unicode Mapping
-    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-    cs = bs[:]
-    n = 0
-    for b in range(256):
-        if b not in bs:
-            bs.append(b); cs.append(256 + n); n += 1
-    byte_encoder = {b: chr(c) for b, c in zip(bs, cs)}
-
+    # Count raw bytes
+    
     with open(filename, "rb") as f:
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
@@ -75,11 +67,32 @@ def process_chunk_from_file(args):
     
     for segment in text_segments:
         for match in re.finditer(pattern, segment):
+            # Directly encode to bytes and count. Fast C-level op.
             word_bytes = match.group().encode("utf-8")
-            safe_word = tuple(byte_encoder[b] for b in word_bytes)
-            word_counts[safe_word] += 1
+            word_counts[word_bytes] += 1
         
     return dict(word_counts)
+
+
+@dataclass(order=False)
+class PrioritizedPair:
+    count: int
+    item1: bytes
+    item2: bytes
+    pair: Tuple[int, int]
+
+    def __lt__(self, other):
+        # Count: Higher is better 
+        if self.count != other.count:
+            return self.count > other.count
+        # Byte 1: Larger is better (lexicographical max)
+        if self.item1 != other.item1:
+            return self.item1 > other.item1
+        # Byte 2: Larger is better
+        if self.item2 != other.item2:
+            return self.item2 > other.item2
+        # Pair ID: Larger is better (fallback)
+        return self.pair > other.pair
 
 def train_bpe(
     filename: str,
@@ -87,11 +100,10 @@ def train_bpe(
     special_tokens: Optional[List[str]] = None,
     use_multiprocessing: bool = True
 ) -> BPETokenizerParams:
-    # vocab_size = 256 + num_merges + num_special
     unique_specials = list(dict.fromkeys(special_tokens)) if special_tokens else []
     num_merges = vocab_size - 256 - len(unique_specials)
     
-    word_counts: Dict[tuple, int] = defaultdict(int)
+    word_counts: Dict[bytes, int] = defaultdict(int)
     split_token = b"<|endoftext|>" if "<|endoftext|>" in unique_specials else b"\n"
     
     with open(filename, "rb") as f:
@@ -110,19 +122,10 @@ def train_bpe(
         for word, count in chunk_word_counts.items(): 
             word_counts[word] += count
 
-    # Standard GPT-2 byte mapping logic
-    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-    cs = bs[:]
-    n = 0
-    for b in range(256):
-        if b not in bs:
-            bs.append(b); cs.append(256 + n); n += 1
-    char_to_byte = {chr(c): b for b, c in zip(bs, cs)}
-    
     vocab: Dict[int, bytes] = {b: bytes([b]) for b in range(256)}
     
-    # Convert safe unicode words to integer lists
-    words = [[char_to_byte[ch] for ch in w] for w in word_counts.keys()]
+    # Convert raw bytes keys to integer lists
+    words = [list(w) for w in word_counts.keys()]
     word_freqs = list(word_counts.values())
     
     internal_merges: Dict[Tuple[int, int], int] = {}
@@ -139,14 +142,22 @@ def train_bpe(
             pair_counts[pair] += freq
             pair_to_words[pair].add(word_idx)
 
+    # Build Heap with our Custom max-logic
+    pq = []
+    for p, count in pair_counts.items():
+        heapq.heappush(pq, PrioritizedPair(count, vocab[p[0]], vocab[p[1]], p))
+
     for merge_idx in range(num_merges):
-        if not pair_counts:
-            break
+        best_pair = None
         
-        # Max frequency, then reverse lexicographic order of vocab bytes
-        best_pair = max(pair_counts, key=lambda p: (pair_counts[p], vocab[p[0]], vocab[p[1]]))
+        # Lazy Pop
+        while pq:
+            top = heapq.heappop(pq)
+            if pair_counts[top.pair] == top.count:
+                best_pair = top.pair
+                break
         
-        if pair_counts[best_pair] <= 0:
+        if not best_pair:
             break
         
         new_index = 256 + merge_idx
@@ -154,40 +165,60 @@ def train_bpe(
         ordered_merges_bytes.append((vocab[best_pair[0]], vocab[best_pair[1]]))
         vocab[new_index] = vocab[best_pair[0]] + vocab[best_pair[1]]
         
-        # Apply merge and update pair counts incrementally
-        for word_idx in list(pair_to_words.get(best_pair, set())):
+        # Neighbor-only logic (O(1))
+        words_to_update = list(pair_to_words.get(best_pair, set()))
+        for word_idx in words_to_update:
             word = words[word_idx]
             freq = word_freqs[word_idx]
             
-            # Remove old pairs from counts
-            for i in range(len(word) - 1):
-                old_p = (word[i], word[i+1])
-                pair_counts[old_p] -= freq
-                pair_to_words[old_p].discard(word_idx)
-            
-            # Perform merge
-            new_word, i = [], 0
+            new_word = []
+            i = 0
             while i < len(word):
-                if i + 1 < len(word) and (word[i], word[i+1]) == best_pair:
+                if i < len(word) - 1 and word[i] == best_pair[0] and word[i+1] == best_pair[1]:
+                    # Match found!
+                    
+                    # 1. Update previous neighbor (Prev, A)
+                    if new_word: 
+                        prev_token = new_word[-1]
+                        prev_pair = (prev_token, word[i])
+                        pair_counts[prev_pair] -= freq
+                        # Lazy Update
+                        if pair_counts[prev_pair] > 0:
+                            heapq.heappush(pq, PrioritizedPair(pair_counts[prev_pair], vocab[prev_pair[0]], vocab[prev_pair[1]], prev_pair))
+                    
+                    # 2. Next Neighbor
+                    if i + 2 < len(word):
+                        next_token = word[i+2]
+                        next_pair = (word[i+1], next_token)
+                        pair_counts[next_pair] -= freq
+                        if pair_counts[next_pair] > 0:
+                            heapq.heappush(pq, PrioritizedPair(pair_counts[next_pair], vocab[next_pair[0]], vocab[next_pair[1]], next_pair))
+                    
+                    # 3. Add Merged Token
                     new_word.append(new_index)
+                    
+                    # 4. Previous neighbor (Prev, NewToken)
+                    if len(new_word) > 1:
+                        new_prev_pair = (new_word[-2], new_index)
+                        pair_counts[new_prev_pair] += freq
+                        pair_to_words[new_prev_pair].add(word_idx)
+                        heapq.heappush(pq, PrioritizedPair(pair_counts[new_prev_pair], vocab[new_prev_pair[0]], vocab[new_prev_pair[1]], new_prev_pair))
+                    
                     i += 2
                 else:
                     new_word.append(word[i])
+                    # Handle (NewToken, Next) logic
+                    if len(new_word) > 1 and new_word[-2] == new_index:
+                        new_next_pair = (new_index, word[i])
+                        pair_counts[new_next_pair] += freq
+                        pair_to_words[new_next_pair].add(word_idx)
+                        heapq.heappush(pq, PrioritizedPair(pair_counts[new_next_pair], vocab[new_next_pair[0]], vocab[new_next_pair[1]], new_next_pair))
+                    
                     i += 1
             words[word_idx] = new_word
-            
-            # Add new pairs to counts
-            for i in range(len(new_word) - 1):
-                new_p = (new_word[i], new_word[i+1])
-                pair_counts[new_p] += freq
-                pair_to_words[new_p].add(word_idx)
-        
-        # Clean up zero-count pairs
-        pairs_to_delete = [p for p in pair_counts if pair_counts[p] <= 0]
-        for p in pairs_to_delete:
-            del pair_counts[p]
-            if p in pair_to_words:
-                del pair_to_words[p]
+
+        del pair_counts[best_pair]
+        del pair_to_words[best_pair]
 
     special_tokens_dict = {}
     if unique_specials:
@@ -257,7 +288,7 @@ if __name__ == "__main__":
     profile = cProfile.Profile(); profile.enable()
     start_time, start_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
 
-    params = train_bpe(filename=tiny_stories_train, vocab_size=vocab_size, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
+    params = train_bpe(filename=tiny_stories_train, vocab_size=vocab_size, special_tokens=["<|endoftext|>"], use_multiprocessing=False)   
     
     end_time, end_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
     profile.disable()
@@ -290,7 +321,7 @@ if __name__ == "__main__":
     profile = cProfile.Profile(); profile.enable()
     start_time, start_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
 
-    params = train_bpe(filename=owl_train, num_merges=num_merges, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
+    params = train_bpe(filename=owl_train, vocab_size=num_merges, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
 
     end_time, end_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
     profile.disable()
