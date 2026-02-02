@@ -4,7 +4,7 @@
 #SBATCH --output=bpe_results.log
 #SBATCH --error=bpe_error.log
 
-#SBATCH --mem=64G                # Request 64GB of RAM
+#SBATCH --mem=128G                # Request 128GB of RAM
 #SBATCH --time=18:00:00          # Set limit to 18 hours
 #SBATCH --cpus-per-task=16       # Use 16 cores (helps the initial word counting)
 

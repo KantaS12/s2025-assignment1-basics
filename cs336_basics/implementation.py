@@ -100,9 +100,47 @@ class SwiGLU(nn.Module):
 
         return F.linear(element_wise, self.w2)
 
-    
+
+# RoPE positional encoding implementation
+class RotaryPositionEmbedding(nn.Module):
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None = None):
+        super(RotaryPositionEmbedding, self).__init__()
+
+        theta_i_k = 1.0 / (theta ** (torch.arange(0, d_k, 2, device=device).float() / d_k))
+
+        positions = torch.arange(0, max_seq_len, device=device).float()
+
+        freqs = torch.einsum('i , j -> i j', positions, theta_i_k)
+
+        double_freq = torch.repeat_interleave(freqs, repeats=2, dim=-1)
+
+        self.register_buffer('cos', torch.cos(double_freq), persistent=False)
+        self.register_buffer('sin', torch.sin(double_freq), persistent=False)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        cos = self.cos[token_positions]
+        sin = self.sin[token_positions]
+
+        x1 = x[..., 0::2]
+        x2 = x[..., 1::2]
+
+        x_rotated = torch.stack((-x2, x1), dim=-1).flatten(start_dim=-2)
+
+        x_out = (x * cos) + (x_rotated * sin)
+
+        return x_out
 
 
+# Softmax function
+def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
 
+    # i-th dimension of input tensor x
+    max_x = torch.max(x, dim=dim, keepdim=True).values
 
-    
+    # Ensure numerical stability subtracting maximum value of i-th dimension from all elements of i-th dimension
+    x = x - max_x
+
+    exp_x = torch.exp(x)
+    sum_exp_x = torch.sum(exp_x, dim=dim, keepdim=True)
+
+    return exp_x / sum_exp_x

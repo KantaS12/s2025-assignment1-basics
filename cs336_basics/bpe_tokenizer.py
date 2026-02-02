@@ -105,9 +105,10 @@ def train_bpe(
     
     word_counts: Dict[bytes, int] = defaultdict(int)
     split_token = b"<|endoftext|>" if "<|endoftext|>" in unique_specials else b"\n"
+
+    num_processes = min(cpu_count(), 14)
     
     with open(filename, "rb") as f:
-        num_processes = cpu_count()
         boundaries = find_chunk_boundaries(f, num_processes, split_token)
     
     chunk_args = [(filename, boundaries[i], boundaries[i+1], PAT, unique_specials) for i in range(len(boundaries) - 1)]
@@ -321,7 +322,7 @@ if __name__ == "__main__":
     profile = cProfile.Profile(); profile.enable()
     start_time, start_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
 
-    params = train_bpe(filename=owl_train, vocab_size=num_merges, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
+    params = train_bpe(filename=owl_train, vocab_size=vocab_size, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
 
     end_time, end_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
     profile.disable()
