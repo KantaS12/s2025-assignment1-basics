@@ -12,6 +12,7 @@ from torch import Tensor
 
 from cs336_basics.bpe_tokenizer import train_bpe
 from cs336_basics.tokenizer_implementation import Tokenizer
+from cs336_basics.implementation import Linear, Embedding, RMSNorm, SwiGLU
 
 
 def run_linear(
@@ -33,7 +34,14 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    # Create a Linear layer with the specified dimensions
+    linear = Linear(in_features=d_in, out_features=d_out, device=weights.device, dtype=weights.dtype)
+    
+    # Load the provided weights (note: no bias is provided in the weights parameter)
+    linear.weights.data = weights
+    
+    # Run forward pass
+    return linear(in_features)
 
 
 def run_embedding(
@@ -55,7 +63,10 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=weights.device, dtype=weights.dtype)
+    embedding.weights.data = weights
+
+    return embedding(token_ids)
 
 
 def run_swiglu(
@@ -84,11 +95,16 @@ def run_swiglu(
     # If your state dict keys match, you can use `load_state_dict()`
     # swiglu.load_state_dict(weights)
     # You can also manually assign the weights
-    # swiglu.w1.weight.data = w1_weight
-    # swiglu.w2.weight.data = w2_weight
-    # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
 
+    model = SwiGLU(d_model=d_model, d_ff=d_ff, device=in_features.device, dtype=in_features.dtype)
+
+    model.w1.data = w1_weight
+    model.w2.data = w2_weight
+    model.w3.data = w3_weight
+
+    return model(in_features)
+
+    
 
 def run_scaled_dot_product_attention(
     Q: Float[Tensor, " ... queries d_k"],
@@ -181,7 +197,7 @@ def run_multihead_self_attention_with_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
-    """
+    """ 
     raise NotImplementedError
 
 
@@ -382,7 +398,10 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rmsnorm = RMSNorm(d_model=d_model, eps=eps, device=weights.device, dtype=weights.dtype)
+    rmsnorm.scale.data = weights
+
+    return rmsnorm(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:

@@ -288,7 +288,7 @@ if __name__ == "__main__":
     profile = cProfile.Profile(); profile.enable()
     start_time, start_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
 
-    params = train_bpe(filename=tiny_stories_train, vocab_size=vocab_size, special_tokens=["<|endoftext|>"], use_multiprocessing=False)   
+    params = train_bpe(filename=tiny_stories_train, vocab_size=vocab_size, special_tokens=["<|endoftext|>"], use_multiprocessing=True)   
     
     end_time, end_mem = time.time(), psutil.Process().memory_info().rss / (1024**3)
     profile.disable()
