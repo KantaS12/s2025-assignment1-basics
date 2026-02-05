@@ -376,12 +376,46 @@ class AdamW(torch.optim.Optimizer):
         return loss
 
 
-
-            
-
+# Learning Rate Scheduling
+def learning_rate_schedule(step: int, max_learning_rate: float, minimum_learning_rate: float, warmup_iterations: int, cos_anneal_iterations: int) -> float:
+    # Warmup Phase
+    if step < warmup_iterations:
+        lr = max_learning_rate * (step / warmup_iterations)
+    # Cosine Annealing Phase  
+    elif step < cos_anneal_iterations:
+    
+        decay_duration = cos_anneal_iterations - warmup_iterations
         
-
-
+        progress = (step - warmup_iterations) / decay_duration
+        cosine_term = math.cos(progress * math.pi)
         
+        lr = minimum_learning_rate + 0.5 * (1 + cosine_term) * (max_learning_rate - minimum_learning_rate)
+    # Post Annealing Phase
+    else:
+        lr = minimum_learning_rate
+
+    return lr
+
+
+# Gradient Clipping
+def gradient_clipping(parameters, max_norm: float):
+    result_norm = 0.0
+
+    for p in parameters:
+        if p.grad is not None:
+            param_norm = p.grad.data.norm(2)
+            result_norm += param_norm.item() ** 2
+
+    # Compute the total norm
+    result_norm = result_norm ** 0.5
+
+    # Clip the gradients if the norm exceeds the maximum
+    if result_norm > max_norm:
+        clip_value = max_norm / result_norm
+        for p in parameters:
+            if p.grad is not None:
+                p.grad.data.mul_(clip_value)
+
+    return result_norm
 
 
