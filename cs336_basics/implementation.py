@@ -300,13 +300,13 @@ def cross_entropy(predicted_logits: torch.Tensor, targets: torch.Tensor) -> torc
 
 # AdamW Optimizer
 class AdamW(torch.optim.Optimizer):
-    def __init__(self, params, alpha: float = 1e-3, beta1: float = 0.9, beta2: float = 0.999, eps: float = 1e-8, weight_decay: float = 0.01):
-        if not 0.0 <= alpha:
-            raise ValueError(f"Invalid learning rate: {alpha}")
-        if not 0.0 <= beta1 < 1.0:
-            raise ValueError(f"Invalid beta1 parameter: {beta1}")
-        if not 0.0 <= beta2 < 1.0:
-            raise ValueError(f"Invalid beta2 parameter: {beta2}")
+    def __init__(self, params, lr: float = 1e-3, weight_decay: float = 0.01, betas = (0.9, 0.999), eps: float = 1e-8):
+        if not 0.0 <= lr:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(f"Invalid beta1 parameter: {betas[0]}")
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(f"Invalid beta2 parameter: {betas[1]}")
         if not 0.0 <= eps:
             raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= weight_decay:
@@ -314,23 +314,70 @@ class AdamW(torch.optim.Optimizer):
 
         # Set defaults
         defaults = {
-            "alpha": alpha,
-            "beta1": beta1,
-            "beta2": beta2,
+            "lr": lr,
+            "betas": betas,
             "eps": eps,
             "weight_decay": weight_decay
         }
 
         super().__init__(params, defaults=defaults)
 
-    def step(self, params, closure = None):
-        if closure is None:
-            loss = None
-        else:
-            loss = closure()
+    def step(self, closure = None):
+        loss = None if closure is None else closure()
 
-        moment_vector = torch.zeros(size=params.size(), device=params.device, dtype=params.dtype)
-        second_moment_vector = torch.zeros(size=params.size(), device=params.device, dtype=params.dtype)
+        # Iterate over parameter groups
+        for group in self.param_groups:
+            lr = group['lr']
+            beta1 = group['betas'][0]
+            beta2 = group['betas'][1]
+            eps = group['eps']
+            weight_decay = group['weight_decay']
+
+            # Iterate over parameters in this group
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad.data
+
+                # Get state for this parameter (creates empty dict if first time)
+                state = self.state[p]
+
+                # Initialize state on first step
+                if len(state) == 0:
+                    state['t'] = 0
+                    state['m'] = torch.zeros_like(p.data)
+                    state['v'] = torch.zeros_like(p.data)
+
+                # Get state variables
+                t = state['t']
+                m = state['m']
+                v = state['v']
+
+                # Increment timestep
+                t += 1
+                state['t'] = t
+
+                # Update biased first moment estimate
+                m.mul_(beta1).add_(grad, alpha=1 - beta1)
+
+                # Update biased second moment estimate
+                v.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+
+                # Compute bias-corrected learning rate
+                lr_t = lr * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+
+                # Update parameters:
+                p.data.addcdiv_(m, torch.sqrt(v) + eps, value=-lr_t)
+
+                # Apply weight decay:
+                p.data.mul_(1 - lr * weight_decay)
+
+        return loss
+
+
+
+            
 
         
 
