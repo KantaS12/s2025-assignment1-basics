@@ -261,3 +261,80 @@ class TransformerLM(nn.Module):
         logits = self.output_linear(x)
 
         return logits
+
+
+# Cross Entropy Implementation
+def cross_entropy(predicted_logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+
+    # Predicted logits (o_i) is in R^(vocab_size)
+    # Targets is a sequence x of length m + 1 and i = 1, ..., m
+
+    # Cross Entropy Equation: l_i = -log softmax(o_i)[x_(i+1)]
+
+    # 1. We want to subtract the largest element for numerical stability
+
+    # 2. Cancel out log and exp if possible
+
+    # 3. Handle any additional batch dimensions and return the average across the batch. 
+
+    # 3etc. assume batch-like dimensions come first before vocab size dimension
+
+    largest_logits = torch.max(predicted_logits, dim=-1, keepdim=True).values
+
+    stabalized_logits = predicted_logits - largest_logits
+
+    exp_logits = torch.exp(stabalized_logits)
+
+    sum_exp_logits = torch.sum(exp_logits, dim=-1, keepdim=True)
+
+    log_softmax = stabalized_logits - torch.log(sum_exp_logits)
+
+    # output[i,j] = A[i, I[i, j]] where A is log_softmax and I is targets (I is index tensor)
+    target_log_probs = log_softmax.gather(dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
+
+    # Calcualte Cross Entropy Loss
+    cross_entropy_loss = -torch.mean(target_log_probs)
+
+    return cross_entropy_loss
+ 
+
+# AdamW Optimizer
+class AdamW(torch.optim.Optimizer):
+    def __init__(self, params, alpha: float = 1e-3, beta1: float = 0.9, beta2: float = 0.999, eps: float = 1e-8, weight_decay: float = 0.01):
+        if not 0.0 <= alpha:
+            raise ValueError(f"Invalid learning rate: {alpha}")
+        if not 0.0 <= beta1 < 1.0:
+            raise ValueError(f"Invalid beta1 parameter: {beta1}")
+        if not 0.0 <= beta2 < 1.0:
+            raise ValueError(f"Invalid beta2 parameter: {beta2}")
+        if not 0.0 <= eps:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= weight_decay:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+
+        # Set defaults
+        defaults = {
+            "alpha": alpha,
+            "beta1": beta1,
+            "beta2": beta2,
+            "eps": eps,
+            "weight_decay": weight_decay
+        }
+
+        super().__init__(params, defaults=defaults)
+
+    def step(self, params, closure = None):
+        if closure is None:
+            loss = None
+        else:
+            loss = closure()
+
+        moment_vector = torch.zeros(size=params.size(), device=params.device, dtype=params.dtype)
+        second_moment_vector = torch.zeros(size=params.size(), device=params.device, dtype=params.dtype)
+
+        
+
+
+        
+
+
