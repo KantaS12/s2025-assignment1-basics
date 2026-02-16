@@ -1,0 +1,188 @@
+_wandb:
+    value:
+        cli_version: 0.24.1
+        e:
+            meu5ha06xf5ajm90vnctucawjekrz8p4:
+                args:
+                    - --train_data
+                    - /home/kantas/koa_scratch/ece405-assignment1-basics/data/TinyStoriesV2-GPT4-train.txt
+                    - --val_data
+                    - /home/kantas/koa_scratch/ece405-assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt
+                    - --tokenizer_vocab
+                    - /home/kantas/koa_scratch/ece405-assignment1-basics/data/vocab.json
+                    - --tokenizer_merges
+                    - /home/kantas/koa_scratch/ece405-assignment1-basics/data/merges.json
+                    - --vocab_size
+                    - "10000"
+                    - --context_length
+                    - "256"
+                    - --d_model
+                    - "512"
+                    - --num_layers
+                    - "4"
+                    - --num_heads
+                    - "16"
+                    - --d_ff
+                    - "1344"
+                    - --rope_theta
+                    - "10000"
+                    - --batch_size
+                    - "64"
+                    - --max_iters
+                    - "20000"
+                    - --warmup_iters
+                    - "2000"
+                    - --cosine_cycle_iters
+                    - "18000"
+                    - --max_lr
+                    - "1e-4"
+                    - --wandb
+                    - --save_dir
+                    - ./checkpoints_lr_1e-4
+                codePath: cs336_basics/training_loop.py
+                codePathLocal: cs336_basics/training_loop.py
+                cpu_count: 48
+                cpu_count_logical: 48
+                cudaVersion: "13.1"
+                disk:
+                    /:
+                        total: "135023218688"
+                        used: "8077832192"
+                email: kantas@hawaii.edu
+                executable: /home/kantas/.conda/envs/ECE405/bin/python
+                git:
+                    commit: e569b7a7ee1d6e101f4605f2b849b4eeadde288c
+                    remote: git@github.com:KantaS12/s2025-assignment1-basics.git
+                gpu: NVIDIA A30
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 3584
+                      memoryTotal: "25769803776"
+                      name: NVIDIA A30
+                      uuid: GPU-aed498e4-7c95-ca34-9d63-3abc06e745ed
+                host: gn-08-13-00
+                memory:
+                    total: "270046441472"
+                os: Linux-5.14.0-611.24.1.el9_7.x86_64-x86_64-with-glibc2.34
+                program: /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/cs336_basics/training_loop.py
+                python: CPython 3.11.14
+                root: /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics
+                slurm:
+                    cluster_name: mana
+                    conf: /etc/slurm/slurm.conf
+                    cpus_on_node: "8"
+                    cpus_per_task: "8"
+                    export_env: NONE
+                    get_user_env: "1"
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    immediate: "120"
+                    job_account: uh
+                    job_cpus_per_node: "8"
+                    job_end_time: "1770523255"
+                    job_gid: "7944"
+                    job_gpus: "0"
+                    job_id: "10578819"
+                    job_name: ece405_train
+                    job_nodelist: gn-08-13-00
+                    job_num_nodes: "1"
+                    job_partition: gpu
+                    job_qos: normal
+                    job_start_time: "1770508855"
+                    job_uid: "7944"
+                    job_user: kantas
+                    jobid: "10578819"
+                    localid: "0"
+                    mem_per_node: "32768"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: gn-08-13-00
+                    nprocs: "1"
+                    ntasks: "1"
+                    ntasks_per_node: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    submit_dir: /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/slurm_jobs
+                    submit_host: cn-03-23-04
+                    task_pid: "166412"
+                    tasks_per_node: "1"
+                    topology_addr: gn-08-13-00
+                    topology_addr_pattern: node
+                    tres_per_task: cpu=8
+                startedAt: "2026-02-08T00:00:59.492389Z"
+                writerId: meu5ha06xf5ajm90vnctucawjekrz8p4
+        m: []
+        python_version: 3.11.14
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 16
+            "4": 3.11.14
+            "5": 0.24.1
+            "12": 0.24.1
+            "13": linux-x86_64
+batch_size:
+    value: 64
+beta1:
+    value: 0.9
+beta2:
+    value: 0.999
+context_length:
+    value: 256
+cosine_cycle_iters:
+    value: 18000
+d_ff:
+    value: 1344
+d_model:
+    value: 512
+device:
+    value: cuda
+eps:
+    value: 1e-08
+eval_interval:
+    value: 1000
+grad_clip:
+    value: 1
+log_interval:
+    value: 50
+max_iters:
+    value: 20000
+max_lr:
+    value: 0.0001
+min_lr:
+    value: 6e-05
+num_heads:
+    value: 16
+num_layers:
+    value: 4
+resume_from:
+    value: null
+rope_theta:
+    value: 10000
+save_dir:
+    value: ./checkpoints_lr_1e-4
+save_interval:
+    value: 2000
+tokenizer_merges:
+    value: /home/kantas/koa_scratch/ece405-assignment1-basics/data/merges.json
+tokenizer_vocab:
+    value: /home/kantas/koa_scratch/ece405-assignment1-basics/data/vocab.json
+train_data:
+    value: /home/kantas/koa_scratch/ece405-assignment1-basics/data/TinyStoriesV2-GPT4-train.txt
+val_data:
+    value: /home/kantas/koa_scratch/ece405-assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt
+vocab_size:
+    value: 10000
+wandb:
+    value: true
+wandb_project:
+    value: cs336-assignment1
+warmup_iters:
+    value: 2000
+weight_decay:
+    value: 0.1

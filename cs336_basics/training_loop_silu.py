@@ -8,7 +8,6 @@ import time
 import logging
 
 from cs336_basics.implementation import (
-    TransformerLM, 
     AdamW, 
     cross_entropy, 
     learning_rate_schedule, 
@@ -20,6 +19,7 @@ from cs336_basics.implementation import (
 
 from cs336_basics.tokenizer_implementation import Tokenizer
 
+from cs336_basics.implementation_swiglu_ablation import TransformerLM
 
 try:
     import wandb
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_model", type=int, default=512)
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=16)
-    parser.add_argument("--d_ff", type=int, default=1344)
+    parser.add_argument("--d_ff", type=int, default=2048) # 4 * 512 = 2048
     parser.add_argument("--rope_theta", type=float, default=10000.0)
 
     # Optimizer config

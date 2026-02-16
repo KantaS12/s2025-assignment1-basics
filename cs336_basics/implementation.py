@@ -2,6 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import numpy as np
+import os
+import typing
+import argparse
+import time
+import logging
 
 # Linear layer implementation
 class Linear(nn.Module):
@@ -419,3 +425,114 @@ def gradient_clipping(parameters, max_norm: float):
     return result_norm
 
 
+# Data Loader
+def data_loading(x: np.array, batch_size: int, context_length: int, device: torch.device):
+    # Returns a pair of tensors (batch_size, context_length)
+    # input sequences and corresponding next-token targets
+
+    # Randomly sample starting indices for each batch element
+    # Make sure we have enough room for context_length + 1 tokens
+    max_start_idx = len(x) - context_length
+    starting_indices = np.random.randint(0, max_start_idx, size=batch_size)
+    
+    # Extract sequences of length context_length starting from each index
+    input_seq = np.array([x[i:i+context_length] for i in starting_indices])
+    target_seq = np.array([x[i+1:i+context_length+1] for i in starting_indices])
+    
+    # Convert to tensors and move to device
+    input_seq = torch.tensor(input_seq, dtype=torch.long, device=device)
+    target_seq = torch.tensor(target_seq, dtype=torch.long, device=device)
+
+    return input_seq, target_seq
+
+
+# Check Pointing
+def save_checkpoint(model: nn.Module, optimizer: torch.optim.Optimizer, iterations: int, out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes]):
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'iterations': iterations
+    }
+    torch.save(checkpoint, out)
+
+def load_checkpoint(src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes], model: torch.nn.Module, optimizer: torch.optim.Optimizer):
+    checkpoint = torch.load(src)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    iterations = checkpoint['iterations']
+    return iterations
+
+
+# Decoding / Text Generations
+def decoding(model: nn.Module, prompt_tokens: torch.Tensor, max_new_tokens: int, eos_token_id: int, temperature: float = 1.0, top_p: float = 1.0) -> torch.Tensor:
+    model.eval()
+
+    generated = prompt_tokens.clone()
+
+    for _ in range(max_new_tokens):
+
+        with torch.no_grad():
+            logits = model(generated)
+
+        next_token_logits = logits[:, -1, :]
+
+        if temperature > 0:
+            next_token_logits = next_token_logits / temperature
+        else:
+            next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
+            generated = torch.cat((generated, next_token), dim=1)
+            if (next_token == eos_token_id).all():
+                break
+            continue
+
+        # Top-p (Nucleus) Sampling
+        if top_p < 1.0:
+            # Sort logits in descending order
+            sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
+            sorted_probs = F.softmax(sorted_logits, dim=-1)
+            
+            # Compute cumulative probabilities
+            cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+            
+            # Create a mask for tokens to remove
+            # We want to keep tokens where cumulative probability is <= top_p
+            # However, we must include the first token that crosses the threshold.
+            
+            # Shift mask right to include the first token above threshold
+            sorted_indices_to_remove = cumulative_probs > top_p
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+            sorted_indices_to_remove[..., 0] = 0
+            
+            # Scatter sorted indices to original indices
+            indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+            
+            # Set logits of removed tokens to -inf
+            next_token_logits[indices_to_remove] = float('-inf')
+
+        # Sample from the distribution
+        probs = F.softmax(next_token_logits, dim=-1)
+        next_token = torch.multinomial(probs, num_samples=1)
+        
+        # Append to the sequence
+        generated = torch.cat((generated, next_token), dim=1)
+        
+        # Stop if <|endoftext|> is generated (assuming batch_size=1 for simplicity in termination)
+        if (next_token == eos_token_id).all():
+            break
+    return generated
+
+
+# Experiment Logging Implementation
+def experiment_log(message: str, log_file: str):
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
+    logging.info(message)
+    with open(log_file, 'a') as f:
+        f.write(f"{message}\n")
+
+
+# Implementation SiLU
+def silu(x: torch.Tensor) -> torch.Tensor:
+    result = x * torch.sigmoid(x)
+
+    return result

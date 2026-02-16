@@ -165,3 +165,6 @@ cython_debug/
 # --- My Project Specific Ignores ---
 data/
 *.txt
+slurm_jobs/
+checkpoints/
+wandb/

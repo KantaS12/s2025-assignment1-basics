@@ -8,7 +8,6 @@ import time
 import logging
 
 from cs336_basics.implementation import (
-    TransformerLM, 
     AdamW, 
     cross_entropy, 
     learning_rate_schedule, 
@@ -18,8 +17,9 @@ from cs336_basics.implementation import (
     load_checkpoint
 )
 
-from cs336_basics.tokenizer_implementation import Tokenizer
+from cs336_basics.implementation_no_norm import TransformerLM
 
+from cs336_basics.tokenizer_implementation import Tokenizer
 
 try:
     import wandb

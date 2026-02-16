@@ -307,11 +307,14 @@ if __name__ == "__main__":
     tokenizer = BPETokenizer(params)
     with open(tiny_stories_valid, 'r', encoding='utf-8') as f: valid_text = f.read()
     
+    t0 = time.time()
     v_tokens = tokenizer.encode(valid_text)
+    t1 = time.time()
+
     print(f"Validation encoded tokens: {len(v_tokens)}")
+    print(f"Encoding time: {t1 - t0:.4f} seconds")
     print(f"Compression ratio: {len(valid_text.encode('utf-8')) / len(v_tokens):.2f}x")
     print(f"Decoded matches original: {tokenizer.decode(v_tokens) == valid_text}")
-
 
 
 
@@ -339,8 +342,12 @@ if __name__ == "__main__":
     print("\nTesting Tokenizer on OWT Validation Set\n")
     tokenizer = BPETokenizer(params)
     with open(owl_valid, 'r', encoding='utf-8') as f: valid_text = f.read()
+
+    t0 = time.time()
     v_tokens = tokenizer.encode(valid_text)
-    
+    t1 = time.time()
+
     print(f"Validation encoded tokens: {len(v_tokens)}")
+    print(f"Encoding time: {t1 - t0:.4f} seconds")
     print(f"Compression ratio: {len(valid_text.encode('utf-8')) / len(v_tokens):.2f}x")
     print(f"Decoded matches original: {tokenizer.decode(v_tokens) == valid_text}")
