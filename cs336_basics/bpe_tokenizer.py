@@ -28,10 +28,15 @@ def find_chunk_boundaries(file: BinaryIO, desired_num_chunks: int, split_special
     file.seek(0, os.SEEK_END)
     file_size = file.tell()
     file.seek(0)
+    
+    # We start with even splits, but we adjust each boundary to the nearest occurrence of the split_special_token.
     chunk_size = file_size // desired_num_chunks
     chunk_boundaries = [i * chunk_size for i in range(desired_num_chunks + 1)]
     chunk_boundaries[-1] = file_size
     mini_chunk_size = 4096
+    
+    # For each boundary (except the first and last), we seek to that position and read forward in mini-chunks until we find the split token. 
+    # This ensures we don't split in the middle of a token.
     for bi in range(1, len(chunk_boundaries) - 1):
         initial_position = chunk_boundaries[bi]
         file.seek(initial_position)
@@ -100,14 +105,22 @@ def train_bpe(
     special_tokens: Optional[List[str]] = None,
     use_multiprocessing: bool = True
 ) -> BPETokenizerParams:
+
+    # Create a unique list of special tokens while preserving order. 
+    # This ensures we only account for each special token once when calculating merges.
     unique_specials = list(dict.fromkeys(special_tokens)) if special_tokens else []
     num_merges = vocab_size - 256 - len(unique_specials)
     
+    # Count raw byte frequencies in the file using multiprocessing.
     word_counts: Dict[bytes, int] = defaultdict(int)
     split_token = b"<|endoftext|>" if "<|endoftext|>" in unique_specials else b"\n"
 
+    # Use the number of CPU cores
     num_processes = min(cpu_count(), 14)
     
+    # Open the file once to find chunk boundaries
+    # Each worker will open it again to read its chunk. 
+    # This avoids issues with shared file handles across processes.
     with open(filename, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, split_token)
     
@@ -123,15 +136,18 @@ def train_bpe(
         for word, count in chunk_word_counts.items(): 
             word_counts[word] += count
 
+    # Initialize vocab with single-byte tokens
     vocab: Dict[int, bytes] = {b: bytes([b]) for b in range(256)}
     
     # Convert raw bytes keys to integer lists
     words = [list(w) for w in word_counts.keys()]
     word_freqs = list(word_counts.values())
     
+    # Data structures for BPE merges
     internal_merges: Dict[Tuple[int, int], int] = {}
     ordered_merges_bytes: List[Tuple[bytes, bytes]] = []
     
+    # We maintain a count of how many times each pair appears across all words, weighted by word frequency.
     pair_counts = defaultdict(int)
     pair_to_words = defaultdict(set)
     
@@ -144,6 +160,9 @@ def train_bpe(
             pair_to_words[pair].add(word_idx)
 
     # Build Heap with our Custom max-logic
+    # Lazy Updating: We only push new counts when they change, but we don't remove old entries. 
+    # When popping, we check if the count is still valid. This avoids O(n) removals and keeps the heap efficient. 
+    # O(1) per update, O(log n) per pop.
     pq = []
     for p, count in pair_counts.items():
         heapq.heappush(pq, PrioritizedPair(count, vocab[p[0]], vocab[p[1]], p))
@@ -176,9 +195,9 @@ def train_bpe(
             i = 0
             while i < len(word):
                 if i < len(word) - 1 and word[i] == best_pair[0] and word[i+1] == best_pair[1]:
-                    # Match found!
+                    # Match found
                     
-                    # 1. Update previous neighbor (Prev, A)
+                    # Update previous neighbor (Prev, A)
                     if new_word: 
                         prev_token = new_word[-1]
                         prev_pair = (prev_token, word[i])
@@ -187,7 +206,7 @@ def train_bpe(
                         if pair_counts[prev_pair] > 0:
                             heapq.heappush(pq, PrioritizedPair(pair_counts[prev_pair], vocab[prev_pair[0]], vocab[prev_pair[1]], prev_pair))
                     
-                    # 2. Next Neighbor
+                    # Next Neighbor
                     if i + 2 < len(word):
                         next_token = word[i+2]
                         next_pair = (word[i+1], next_token)
@@ -195,10 +214,10 @@ def train_bpe(
                         if pair_counts[next_pair] > 0:
                             heapq.heappush(pq, PrioritizedPair(pair_counts[next_pair], vocab[next_pair[0]], vocab[next_pair[1]], next_pair))
                     
-                    # 3. Add Merged Token
+                    # Add Merged Token
                     new_word.append(new_index)
-                    
-                    # 4. Previous neighbor (Prev, NewToken)
+
+                    # Previous neighbor (Prev, NewToken)
                     if len(new_word) > 1:
                         new_prev_pair = (new_word[-2], new_index)
                         pair_counts[new_prev_pair] += freq
@@ -243,6 +262,8 @@ class BPETokenizer:
         self.special_regex = re.compile(f"({'|'.join(map(re.escape, params.special_tokens.keys()))})") if params.special_tokens else None
 
     def encode(self, text: str) -> List[int]:
+        # If no special tokens, we can skip the regex splitting and directly encode the whole text. 
+        # This is a common case that can be optimized.
         if not self.special_regex: return self._encode_standard_text(text)
         indices = []
         for part in self.special_regex.split(text):
@@ -251,6 +272,8 @@ class BPETokenizer:
         return indices
 
     def _encode_standard_text(self, text: str) -> List[int]:
+        # This is the core BPE encoding logic. 
+        # We find all matches of our token pattern, convert them to byte indices, and then apply merges until we can't merge anymore.
         indices = []
         for match in re.finditer(self.pattern, text):
             chunk_indices = list(match.group().encode("utf-8"))
@@ -266,6 +289,7 @@ class BPETokenizer:
         return indices
 
     def decode(self, indices: List[int]) -> str:
+        # To decode, we simply look up each index in the vocab to get its byte representation, concatenate all bytes, and decode to a string.
         byte_fragments = []
         for idx in indices:
             token_bytes = self.params.vocab[idx]
@@ -273,6 +297,7 @@ class BPETokenizer:
         return b"".join(byte_fragments).decode("utf-8", errors="replace")
 
 def serialize_tokenizer(params: BPETokenizerParams, vocab_file: str, merges_file: str):
+    # We convert bytes to lists of integers for JSON serialization, and we convert merge pairs to string keys.
     with open(vocab_file, 'w') as f: json.dump({k: list(v) for k, v in params.vocab.items()}, f)
     with open(merges_file, 'w') as f: json.dump({f"{k[0]},{k[1]}": v for k, v in params.merges.items()}, f)
 
