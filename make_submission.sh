@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv run pytest -v ./tests --junitxml=test_results.xml || true
-echo "Done running tests"
+source activate ECE405
+
+# uv run pytest -v ./tests --junitxml=test_results.xml || true
+# echo "Done running tests"
 
 # Set the name of the output tar.gz file
 output_file="cs336-spring2025-assignment-1-submission.zip"
@@ -31,6 +33,13 @@ zip -r "$output_file" . \
     -x '*.pt' \
     -x '*.pth' \
     -x '*.npy' \
-    -x '*.npz'
+    -x '*.npz' \
+    -x 'wandb/*' \
+    -x 'checkpoints/*' \
+    -x 'logs/*' \
+    -x 'data/*'
+
+# Now add back vocab_merges JSON files explicitly
+zip -r "$output_file" vocab_merges/
 
 echo "All files have been compressed into $output_file"

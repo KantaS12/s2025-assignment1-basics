@@ -294,7 +294,7 @@ def cross_entropy(predicted_logits: torch.Tensor, targets: torch.Tensor) -> torc
     sum_exp_logits = torch.sum(exp_logits, dim=-1, keepdim=True)
 
     log_softmax = stabalized_logits - torch.log(sum_exp_logits)
-
+    
     # output[i,j] = A[i, I[i, j]] where A is log_softmax and I is targets (I is index tensor)
     target_log_probs = log_softmax.gather(dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
 

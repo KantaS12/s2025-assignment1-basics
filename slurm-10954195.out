@@ -1,0 +1,67 @@
+=========================================== test session starts ============================================
+platform linux -- Python 3.11.14, pytest-8.4.1, pluggy-1.6.0 -- /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics
+configfile: pytest.ini
+plugins: jaxtyping-0.3.2
+collecting ... collected 48 items
+
+tests/test_data.py::test_get_batch PASSED                                                            [  2%]
+tests/test_model.py::test_linear PASSED                                                              [  4%]
+tests/test_model.py::test_embedding PASSED                                                           [  6%]
+tests/test_model.py::test_swiglu PASSED                                                              [  8%]
+tests/test_model.py::test_scaled_dot_product_attention PASSED                                        [ 10%]
+tests/test_model.py::test_4d_scaled_dot_product_attention PASSED                                     [ 12%]
+tests/test_model.py::test_multihead_self_attention PASSED                                            [ 14%]
+tests/test_model.py::test_multihead_self_attention_with_rope PASSED                                  [ 16%]
+tests/test_model.py::test_transformer_lm PASSED                                                      [ 18%]
+tests/test_model.py::test_transformer_lm_truncated_input PASSED                                      [ 20%]
+tests/test_model.py::test_transformer_block PASSED                                                   [ 22%]
+tests/test_model.py::test_rmsnorm PASSED                                                             [ 25%]
+tests/test_model.py::test_rope PASSED                                                                [ 27%]
+tests/test_model.py::test_silu_matches_pytorch PASSED                                                [ 29%]
+tests/test_nn_utils.py::test_softmax_matches_pytorch PASSED                                          [ 31%]
+tests/test_nn_utils.py::test_cross_entropy PASSED                                                    [ 33%]
+tests/test_nn_utils.py::test_gradient_clipping PASSED                                                [ 35%]
+tests/test_optimizer.py::test_adamw PASSED                                                           [ 37%]
+tests/test_optimizer.py::test_get_lr_cosine_schedule PASSED                                          [ 39%]
+tests/test_serialization.py::test_checkpointing PASSED                                               [ 41%]
+tests/test_tokenizer.py::test_roundtrip_empty PASSED                                                 [ 43%]
+tests/test_tokenizer.py::test_empty_matches_tiktoken PASSED                                          [ 45%]
+tests/test_tokenizer.py::test_roundtrip_single_character PASSED                                      [ 47%]
+tests/test_tokenizer.py::test_single_character_matches_tiktoken PASSED                               [ 50%]
+tests/test_tokenizer.py::test_roundtrip_single_unicode_character PASSED                              [ 52%]
+tests/test_tokenizer.py::test_single_unicode_character_matches_tiktoken PASSED                       [ 54%]
+tests/test_tokenizer.py::test_roundtrip_ascii_string PASSED                                          [ 56%]
+tests/test_tokenizer.py::test_ascii_string_matches_tiktoken PASSED                                   [ 58%]
+tests/test_tokenizer.py::test_roundtrip_unicode_string PASSED                                        [ 60%]
+tests/test_tokenizer.py::test_unicode_string_matches_tiktoken PASSED                                 [ 62%]
+tests/test_tokenizer.py::test_roundtrip_unicode_string_with_special_tokens PASSED                    [ 64%]
+tests/test_tokenizer.py::test_unicode_string_with_special_tokens_matches_tiktoken PASSED             [ 66%]
+tests/test_tokenizer.py::test_overlapping_special_tokens PASSED                                      [ 68%]
+tests/test_tokenizer.py::test_address_roundtrip PASSED                                               [ 70%]
+tests/test_tokenizer.py::test_address_matches_tiktoken PASSED                                        [ 72%]
+tests/test_tokenizer.py::test_german_roundtrip PASSED                                                [ 75%]
+tests/test_tokenizer.py::test_german_matches_tiktoken PASSED                                         [ 77%]
+tests/test_tokenizer.py::test_tinystories_sample_roundtrip PASSED                                    [ 79%]
+tests/test_tokenizer.py::test_tinystories_matches_tiktoken PASSED                                    [ 81%]
+tests/test_tokenizer.py::test_encode_special_token_trailing_newlines PASSED                          [ 83%]
+tests/test_tokenizer.py::test_encode_special_token_double_newline_non_whitespace PASSED              [ 85%]
+tests/test_tokenizer.py::test_encode_iterable_tinystories_sample_roundtrip PASSED                    [ 87%]
+tests/test_tokenizer.py::test_encode_iterable_tinystories_matches_tiktoken PASSED                    [ 89%]
+tests/test_tokenizer.py::test_encode_iterable_memory_usage PASSED                                    [ 91%]
+tests/test_tokenizer.py::test_encode_memory_usage XFAIL (Tokenizer.encode is expected to take mo...) [ 93%]
+tests/test_train_bpe.py::test_train_bpe_speed PASSED                                                 [ 95%]
+tests/test_train_bpe.py::test_train_bpe PASSED                                                       [ 97%]
+tests/test_train_bpe.py::test_train_bpe_special_tokens PASSED                                        [100%]
+
+============================================= warnings summary =============================================
+tests/adapters.py:365
+  /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/tests/adapters.py:365: DeprecationWarning: invalid escape sequence '\T'
+    """Given the weights of a Transformer language model and input indices,
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+------ generated xml file: /mnt/lustre/koa/scratch/kantas/ece405-assignment1-basics/test_results.xml -------
+=========================== 47 passed, 1 xfailed, 1 warning in 68.56s (0:01:08) ============================
+Done running tests
+Scanning files ...............[2026-02-19T09:16:06.006] error: *** JOB 10954195 ON cn-08-30-03 CANCELLED AT 2026-02-19T09:16:06 DUE TO TIME LIMIT ***
